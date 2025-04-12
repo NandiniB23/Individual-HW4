@@ -1,0 +1,166 @@
+package application.test;
+
+import application.Answer;
+import application.Review;
+import application.ReviewManager;
+import application.User;
+import databasePart1.DatabaseHelper;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import java.util.ArrayList;
+import java.util.List;
+import static org.junit.jupiter.api.Assertions.*;
+
+/**
+ * Test class for ReviewManager functionality.
+ * Verifies that students can view reviews of potential answers.
+ * Also includes tests for staff role functionalities like deleting reviews,
+ * viewing all users, and updating user roles.
+ */
+public class ReviewManagerTest {
+
+    private ReviewManager reviewManager;
+    private MockDatabaseHelper mockDb;
+
+    /**
+     * Initializes the mock database and review manager before each test.
+     */
+    @BeforeEach
+    public void setUp() {
+        mockDb = new MockDatabaseHelper();
+        reviewManager = new ReviewManager(mockDb);
+    }
+
+    /**
+     * Test: Displays reviews for a selected answer.
+     */
+    @Test
+    public void testDisplayReviewsForSelectedAnswer() {
+        mockDb.addMockReview(new Review(1, "reviewer1", -1, 100, "Helpful answer!"));
+        List<Review> reviews = reviewManager.getReviewsByAnswer(100);
+        assertEquals(1, reviews.size());
+        assertEquals("Helpful answer!", reviews.get(0).getReviewText());
+    }
+
+    /**
+     * Test: Displays message when no reviews exist.
+     */
+    @Test
+    public void testDisplayMessageWhenNoReviewsExist() {
+        List<Review> reviews = reviewManager.getReviewsByAnswer(999);
+        assertNotNull(reviews);
+        assertTrue(reviews.isEmpty());
+    }
+
+    /**
+     * Test: Displays multiple reviews for a single answer.
+     */
+    @Test
+    public void testDisplayMultipleReviewsForAnswer() {
+        mockDb.addMockReview(new Review(1, "reviewer1", -1, 200, "Great explanation!"));
+        mockDb.addMockReview(new Review(2, "reviewer2", -1, 200, "Very clear."));
+        List<Review> reviews = reviewManager.getReviewsByAnswer(200);
+        assertEquals(2, reviews.size());
+    }
+
+    /**
+     * Test: Ensures that reviews are returned only for the correct answer ID.
+     */
+    @Test
+    public void testReviewsAreCorrectlyMappedToAnswerId() {
+        mockDb.addMockReview(new Review(1, "reviewer1", -1, 300, "Relevant to 300"));
+        mockDb.addMockReview(new Review(2, "reviewer2", -1, 301, "Not related"));
+        List<Review> reviews = reviewManager.getReviewsByAnswer(300);
+        assertEquals(1, reviews.size());
+        assertEquals(300, reviews.get(0).getAnswerId());
+    }
+
+    /**
+     * Test: Handles the case when no answer is selected.
+     */
+    @Test
+    public void testNoAnswerSelectedDoesNotFetchReviews() {
+        List<Review> reviews = reviewManager.getReviewsByAnswer(-1);
+        assertNotNull(reviews);
+        assertTrue(reviews.isEmpty());
+    }
+
+    /**
+     * Test: Long review text is correctly handled and preserved.
+     */
+    @Test
+    public void testLongReviewTextIsHandled() {
+        String longText = "This is a very long review...".repeat(50);
+        mockDb.addMockReview(new Review(1, "reviewer1", -1, 400, longText));
+        List<Review> reviews = reviewManager.getReviewsByAnswer(400);
+        assertEquals(1, reviews.size());
+        assertEquals(longText, reviews.get(0).getReviewText());
+    }
+
+    /**
+     * Test: Staff user can retrieve all users.
+     */
+    @Test
+    public void testGetAllUsers() {
+        List<User> users = reviewManager.getAllUsers();
+        assertNotNull(users);
+    }
+
+    /**
+     * Test: Staff can delete a review.
+     */
+    @Test
+    public void testDeleteReviewById() {
+        mockDb.addMockReview(new Review(1, "reviewer1", -1, 401, "Delete me"));
+        boolean deleted = reviewManager.deleteReviewById(1);
+        assertTrue(deleted);
+    }
+
+    /**
+     * Test: Staff can change user role.
+     */
+    @Test
+    public void testUpdateUserRole() {
+        boolean updated = reviewManager.updateUserRole(1, "admin");
+        assertTrue(updated);
+    }
+
+    /**
+     * Mock class to simulate database functionality for testing.
+     */
+    private static class MockDatabaseHelper extends DatabaseHelper {
+        private final List<Review> mockReviews = new ArrayList<>();
+
+        public void addMockReview(Review review) {
+            mockReviews.add(review);
+        }
+
+        @Override
+        public List<Review> getReviewsByAnswer(int answerId) {
+            List<Review> result = new ArrayList<>();
+            for (Review r : mockReviews) {
+                if (r.getAnswerId() == answerId) {
+                    result.add(r);
+                }
+            }
+            return result;
+        }
+
+        @Override
+        public boolean deleteReview(int reviewId) {
+            return mockReviews.removeIf(r -> r.getId() == reviewId);
+        }
+
+        @Override
+        public boolean updateUserRole(int userId, String newRole) {
+            return true; // Mock always succeeds
+        }
+
+        @Override
+        public List<User> getAllUsers() {
+            List<User> users = new ArrayList<>();
+            users.add(new User(1, "user1", "User One", "user1@example.com", "student"));
+            return users;
+        }
+    }
+}
